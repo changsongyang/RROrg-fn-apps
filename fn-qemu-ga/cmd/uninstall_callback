@@ -2,7 +2,4 @@
 
 ### This script is called after the user uninstalls the application.
 
-apt remove -y qemu-ga
-apt autoremove -y
-
 exit 0

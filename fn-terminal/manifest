@@ -1,5 +1,5 @@
 appname               = fn-terminal
-version               = 1.0.0
+version               = 1.0.1
 display_name          = terminal
 desc                  = terminal
 arch                  = x86_64

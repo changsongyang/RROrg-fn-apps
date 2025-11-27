@@ -1,5 +1,5 @@
 appname      = fn-open-vm-tools
-version      = 1.0.0
+version      = 1.0.1
 display_name = open-vm-tools
 desc         = open-vm-tools
 arch         = x86_64

@@ -2,4 +2,8 @@
 
 ### This script is called before the user upgrades the application.
 
+
+apt update
+apt upgrade -y open-vm-tools
+
 exit 0

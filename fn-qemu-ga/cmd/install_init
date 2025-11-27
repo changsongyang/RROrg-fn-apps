@@ -3,6 +3,6 @@
 ### This script is called before the user installs the application.
 
 apt update
-apt install -y qemu-ga
+apt install -y qemu-guest-agent
 
 exit 0
