@@ -1,0 +1,17 @@
+[Unit]
+Description=Fn Scheduler Service
+After=network.target
+DefaultDependencies=no
+Before=shutdown.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/apps/fn-scheduler/target/server
+ExecStart=/bin/bash start.sh
+ExecStop=/bin/bash -c "kill -TERM $MAINPID; wait $MAINPID"
+Restart=on-failure
+KillSignal=SIGTERM
+TimeoutStopSec=300
+
+[Install]
+WantedBy=multi-user.target

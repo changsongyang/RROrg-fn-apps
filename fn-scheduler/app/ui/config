@@ -1,0 +1,12 @@
+{
+    ".url": {
+        "fn-scheduler.Application": {
+            "title": "任务计划",
+            "icon": "images/icon_{0}.png",
+            "type": "iframe",
+            "port": "28256",
+            "url": "/",
+            "allUsers": false
+        }
+    }
+}
