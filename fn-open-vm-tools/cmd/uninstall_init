@@ -5,4 +5,4 @@
 apt remove -y open-vm-tools
 apt autoremove -y
 
-exit 0
+exit $?

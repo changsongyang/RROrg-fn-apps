@@ -5,4 +5,4 @@
 apt remove -y qemu-guest-agent
 apt autoremove -y
 
-exit 0
+exit $?

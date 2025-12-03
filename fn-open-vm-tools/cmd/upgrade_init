@@ -6,4 +6,4 @@
 apt update
 apt upgrade -y open-vm-tools
 
-exit 0
+exit $?

@@ -5,4 +5,4 @@
 apt update
 apt install -y qemu-guest-agent
 
-exit 0
+exit $?
