@@ -43,79 +43,46 @@ const elements = {
   currentTime: document.getElementById("currentTime"),
 };
 
-// 任务模板定义
-const taskTemplates = {
-  auto_shutdown: {
-    name: "定时关机",
-    trigger_type: "schedule",
-    schedule_expression: "0 23 * * *", // 每天23点
-    script_body: `#!/bin/bash
-# 定时关机脚本（Linux系统专用）
-echo "$(date): 开始执行关机操作..."
+// 模板将通过异步加载（templates.json）注入到此变量
+let taskTemplates = {};
 
-# 检测是否为Linux系统
-if [[ "$(uname -s)" != "Linux" ]]; then
-    echo "错误：此脚本仅适用于Linux系统"
-    exit 1
-fi
-
-echo "检测到Linux系统，准备关机..."
-
-# 检查是否有sudo权限
-if [ "$EUID" -ne 0 ]; then
-    echo "警告：建议使用sudo权限运行此脚本"
-    echo "将以当前用户权限执行关机"
-fi
-
-# 给用户60秒时间保存工作
-echo "系统将在60秒后关机，按Ctrl+C取消..."
-echo "发送关机广播消息到所有登录用户..."
-wall "系统将在60秒后关机，请保存您的工作！"
-
-# 执行关机命令（延迟60秒）
-shutdown -h +1
-
-echo "关机命令已发送，系统将在60秒后关闭"
-echo "如需取消关机，请运行: shutdown -c"
-exit 0`
-  },
-  clean_recycle: {
-    name: "定时清理回收站",
-    trigger_type: "schedule",
-    schedule_expression: "0 2 * * *", // 每天凌晨2点
-    script_body: `#!/bin/bash
-# 定时清理回收站脚本（Linux系统专用）
-echo "$(date): 开始清理回收站..."
-
-# 检测是否为Linux系统
-if [[ "$(uname -s)" != "Linux" ]]; then
-    echo "错误：此脚本仅适用于Linux系统"
-    exit 1
-fi
-
-echo "检测到Linux系统，开始清理..."
-
-# 清理用户回收站（GNOME/KDE环境）
-clean_count=0
-
-if [ -d "$HOME/.local/share/Trash" ]; then
-    echo "清理GNOME回收站..."
-    rm -rf "$HOME/.local/share/Trash/files/*" 2>/dev/null
-    rm -rf "$HOME/.local/share/Trash/info/*" 2>/dev/null
-fi
-
-# 清理临时文件（7天以上）
-echo "清理临时文件..."
-find /tmp -type f -atime +7 -delete 2>/dev/null
-
-echo "清理完成！"
-exit 0`
+async function loadTemplates() {
+  try {
+    const resp = await fetch(new URL('./templates.json', window.location.href));
+    if (!resp.ok) throw new Error(`加载模板失败: ${resp.status}`);
+    taskTemplates = await resp.json();
+    renderTemplateOptions();
+    console.info('任务模板已加载', Object.keys(taskTemplates));
+  } catch (err) {
+    console.warn('无法加载 templates.json，使用内联或空模板', err);
+    taskTemplates = {};
   }
-};
+}
+
+function renderTemplateOptions() {
+  const select = document.getElementById('templateSelect');
+  if (!select) return;
+  // 保留首项 "无模板（自定义）"
+  const current = select.value || '';
+  select.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = '无模板（自定义）';
+  select.appendChild(placeholder);
+  Object.keys(taskTemplates || {}).forEach((key) => {
+    const tpl = taskTemplates[key];
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = tpl.name || key;
+    select.appendChild(opt);
+  });
+  // 尝试恢复之前选择
+  if (current) select.value = current;
+}
 
 // 显示当前时间
 function updateCurrentTime() {
-  if (!elements.currentTime) {return;}
+  if (!elements.currentTime) { return; }
   const now = new Date();
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, "0");
@@ -244,7 +211,7 @@ const api = {
 };
 
 function formatDate(value) {
-  if (!value) {return "—";}
+  if (!value) { return "—"; }
   // 去除 T、去除时区（如 +00:00 或 Z）
   let s = value.replace("T", " ");
   // 去掉结尾的时区部分（+00:00、Z等）
@@ -353,7 +320,7 @@ function renderAccountOptions(selectedAccount = "") {
   const select = elements.accountSelect;
   const statusEl = elements.accountStatus;
   const reloadBtn = elements.accountReloadBtn;
-  if (!select) {return;}
+  if (!select) { return; }
 
   select.innerHTML = "";
   const isReadOnly = !state.posixSupported;
@@ -501,13 +468,13 @@ function populatePreTaskOptions(currentId = null, selected = []) {
 function openTaskModal(task = null) {
   state.editingTaskId = task?.id ?? null;
   elements.taskForm.reset();
-  
+
   // 重置模板选择
   const templateSelect = document.getElementById('templateSelect');
   if (templateSelect) {
     templateSelect.value = '';
   }
-  
+
   // 记录原始任务名称（用于判断是否已修改）
   if (task) {
     state.editingTaskName = task.name;
@@ -515,7 +482,7 @@ function openTaskModal(task = null) {
   } else {
     state.editingTaskName = '';
   }
-  
+
   const preferredAccount = task?.account || "";
   renderAccountOptions(preferredAccount);
   if (!state.accountLoading && !state.accounts.length) {
@@ -596,41 +563,41 @@ function updateCronPreview() {
     elements.cronPreview.textContent = expression;
   }
   // 计算2次执行时间并显示有效性
-    if (elements.cronNextTimes) {
-      const result = getNextCronTimes(expression, 2);
-      if (!result.valid) {
-        elements.cronNextTimes.textContent = "表达式无效";
-        elements.cronNextTimes.classList.add("cron-invalid");
-        if (elements.cronPreview) {
-          elements.cronPreview.classList.add("cron-invalid");
-        }
-        if (buttons.applyCron) {
-          buttons.applyCron.disabled = true;
-        }
+  if (elements.cronNextTimes) {
+    const result = getNextCronTimes(expression, 2);
+    if (!result.valid) {
+      elements.cronNextTimes.textContent = "表达式无效";
+      elements.cronNextTimes.classList.add("cron-invalid");
+      if (elements.cronPreview) {
+        elements.cronPreview.classList.add("cron-invalid");
+      }
+      if (buttons.applyCron) {
+        buttons.applyCron.disabled = true;
+      }
+    } else {
+      if (buttons.applyCron) {
+        buttons.applyCron.disabled = false;
+      }
+      elements.cronNextTimes.classList.remove("cron-invalid");
+      if (elements.cronPreview) {
+        elements.cronPreview.classList.remove("cron-invalid");
+      }
+      if (result.times.length) {
+        elements.cronNextTimes.innerHTML =
+          "执行时间预览：" +
+          result.times.map((t) => `<div>${t}</div>`).join("");
       } else {
-        if (buttons.applyCron) {
-          buttons.applyCron.disabled = false;
-        }
-        elements.cronNextTimes.classList.remove("cron-invalid");
-        if (elements.cronPreview) {
-          elements.cronPreview.classList.remove("cron-invalid");
-        }
-        if (result.times.length) {
-          elements.cronNextTimes.innerHTML =
-            "执行时间预览：" +
-            result.times.map((t) => `<div>${t}</div>`).join("");
-        } else {
-          elements.cronNextTimes.textContent = "";
-        }
-        if (result.exceeded) {
-          const hint = document.createElement("div");
-          hint.className = "muted";
-          hint.style.marginTop = "6px";
-          hint.textContent = `已超出搜索范围（${result.maxMonths} 个月），可能在更远时间触发`;
-          elements.cronNextTimes.appendChild(hint);
-        }
+        elements.cronNextTimes.textContent = "";
+      }
+      if (result.exceeded) {
+        const hint = document.createElement("div");
+        hint.className = "muted";
+        hint.style.marginTop = "6px";
+        hint.textContent = `已超出搜索范围（${result.maxMonths} 个月），可能在更远时间触发`;
+        elements.cronNextTimes.appendChild(hint);
       }
     }
+  }
   return expression;
 }
 
@@ -648,23 +615,22 @@ function getNextCronTimes(expr, count = 2) {
       0,
     );
     const parts = expr.trim().split(/\s+/);
-    if (parts.length !== 5) {return { times: [], valid: false };}
+    if (parts.length !== 5) { return { times: [], valid: false }; }
     // 解析每个字段
     function parseField(str, min, max) {
-      if (str === "*")
-        {return Array.from({ length: max - min + 1 }, (_, i) => i + min);}
+      if (str === "*") { return Array.from({ length: max - min + 1 }, (_, i) => i + min); }
       let out = new Set();
       str.split(",").forEach((token) => {
         if (token.includes("/")) {
           let [range, step] = token.split("/");
           step = parseInt(step);
-          if (!step || step < 1) {return;}
+          if (!step || step < 1) { return; }
           let vals =
             range === "*"
               ? Array.from({ length: max - min + 1 }, (_, i) => i + min)
               : parseRange(range, min, max);
           vals.forEach((v, i) => {
-            if ((v - min) % step === 0) {out.add(v);}
+            if ((v - min) % step === 0) { out.add(v); }
           });
         } else {
           parseRange(token, min, max).forEach((v) => out.add(v));
@@ -675,11 +641,10 @@ function getNextCronTimes(expr, count = 2) {
         .sort((a, b) => a - b);
     }
     function parseRange(token, min, max) {
-      if (token === "*")
-        {return Array.from({ length: max - min + 1 }, (_, i) => i + min);}
+      if (token === "*") { return Array.from({ length: max - min + 1 }, (_, i) => i + min); }
       if (token.includes("-")) {
         let [a, b] = token.split("-").map(Number);
-        if (isNaN(a) || isNaN(b) || a > b) {return [];}
+        if (isNaN(a) || isNaN(b) || a > b) { return []; }
         return Array.from({ length: b - a + 1 }, (_, i) => a + i);
       }
       let n = Number(token);
@@ -908,10 +873,10 @@ async function runSelectedTasks() {
     const blockedCount = blocked.length;
     const missingCount = missing.length;
     const parts = [];
-    if (queuedCount) {parts.push(`已触发 ${queuedCount} 个任务`);}
-    if (runningCount) {parts.push(`${runningCount} 个任务正在执行`);}
-    if (blockedCount) {parts.push(`${blockedCount} 个任务等待前置完成`);}
-    if (missingCount) {parts.push(`${missingCount} 个任务不存在`);}
+    if (queuedCount) { parts.push(`已触发 ${queuedCount} 个任务`); }
+    if (runningCount) { parts.push(`${runningCount} 个任务正在执行`); }
+    if (blockedCount) { parts.push(`${blockedCount} 个任务等待前置完成`); }
+    if (missingCount) { parts.push(`${missingCount} 个任务不存在`); }
     showToast(parts.join("；") || "未触发任何任务");
   } catch (error) {
     showToast(error.message, true);
@@ -942,9 +907,9 @@ async function toggleSelectedTask() {
     await loadTasks();
     const verb = shouldEnable ? "启用" : "停用";
     const parts = [];
-    if (updatedCount) {parts.push(`已${verb} ${updatedCount} 个任务`);}
-    if (unchangedCount) {parts.push(`${unchangedCount} 个任务状态本已满足`);}
-    if (missingCount) {parts.push(`${missingCount} 个任务不存在`);}
+    if (updatedCount) { parts.push(`已${verb} ${updatedCount} 个任务`); }
+    if (unchangedCount) { parts.push(`${unchangedCount} 个任务状态本已满足`); }
+    if (missingCount) { parts.push(`${missingCount} 个任务不存在`); }
     showToast(parts.join("；") || `没有任务完成${verb}`);
   } catch (error) {
     showToast(error.message, true);
@@ -970,7 +935,7 @@ async function openResultModal() {
 }
 
 async function refreshResults() {
-  if (!state.currentResultTaskId) {return;}
+  if (!state.currentResultTaskId) { return; }
   try {
     const { data } = await api.fetchResults(state.currentResultTaskId);
     renderResults(data || []);
@@ -1016,7 +981,7 @@ function renderResults(results) {
 }
 
 async function clearResultHistory() {
-  if (!state.currentResultTaskId) {return;}
+  if (!state.currentResultTaskId) { return; }
   if (!window.confirm("确认清空该任务的全部历史记录？")) {
     return;
   }
@@ -1042,7 +1007,7 @@ function closeModalOnOverlay(event) {
 function attachEventListeners() {
   elements.tableBody.addEventListener("click", (event) => {
     const row = event.target.closest("tr");
-    if (!row) {return;}
+    if (!row) { return; }
     const id = Number(row.dataset.id);
     if (event.metaKey || event.ctrlKey) {
       if (state.selectedIds.has(id)) {
@@ -1148,61 +1113,26 @@ function attachEventListeners() {
       closeModal(elements.cronModal);
     }
   });
-  
+
   // 添加模板选择事件监听器
   const templateSelect = document.getElementById('templateSelect');
   if (templateSelect) {
-    templateSelect.addEventListener('change', function() {
+    templateSelect.addEventListener('change', function () {
       const templateKey = this.value;
-      
       if (templateKey && taskTemplates[templateKey]) {
         const template = taskTemplates[templateKey];
-        
-        // 自动填充表单字段
-        elements.taskForm.name.value = template.name;
-        elements.triggerTypeSelect.value = template.trigger_type;
-        toggleSections(); // 更新界面显示
-        
-        if (template.schedule_expression && elements.scheduleInput) {
-          elements.scheduleInput.value = template.schedule_expression;
-        }
-        
+        // 仅替换任务内容，不修改名称、触发方式或其它字段
         elements.taskForm.script_body.value = template.script_body;
-        
-        // 提示用户
-        showToast(`已应用"${template.name}"模板，请根据需要调整参数`);
-      } else if (templateKey === '') {
-        // 选择"无模板（自定义）"时，检查并清空模板字段
-        const currentName = elements.taskForm.name.value;
-        const currentScript = elements.taskForm.script_body.value;
-        
-        // 检查当前内容是否匹配任一模板
-        let isTemplateContent = false;
-        for (const key in taskTemplates) {
-          const template = taskTemplates[key];
-          if (currentName === template.name || 
-              currentScript.includes(template.script_body.substring(0, 30))) {
-            isTemplateContent = true;
-            break;
-          }
-        }
-        
-        if (isTemplateContent) {
-          // 清空模板可能设置的字段
-          elements.taskForm.name.value = '';
-          if (elements.scheduleInput) {
-            elements.scheduleInput.value = '';
-          }
-          elements.taskForm.script_body.value = '';
-          elements.triggerTypeSelect.value = 'schedule';
-          toggleSections();
-        }
+        showToast(`已应用模板：${template.name}（仅替换任务内容）`);
+      } else {
+        // 选择“无模板（自定义）”时不做其它自动清理，仅保留当前用户输入
       }
     });
   }
 }
 
 (async function init() {
+  await loadTemplates();
   attachEventListeners();
   toggleSections();
   await loadAccounts({ showError: false });

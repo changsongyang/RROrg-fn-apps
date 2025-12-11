@@ -122,16 +122,14 @@ button.danger:hover:not(:disabled) {
     transform: translateY(-1px);
 }
 
-button.ghost {
-}
+button.ghost {}
 
 button.ghost:hover:not(:disabled) {
     background: rgba(0, 0, 0, 0.05);
     color: var(--text);
 }
 
-button.small {
-}
+button.small {}
 
 button:disabled {
     opacity: 0.5;
@@ -160,14 +158,24 @@ button:disabled {
     background: var(--surface);
     border-radius: var(--radius);
     border: 1px solid var(--border);
-    overflow: hidden;
+    /* allow scroll when task list grows */
+    overflow: auto;
+    max-height: calc(100vh - 240px);
     box-shadow: var(--shadow);
-    margin-top: 24px;
+    margin-top: 12px;
 }
 
 #taskTable {
     width: 100%;
     border-collapse: collapse;
+}
+
+/* 固定表头并确保表格容器可滚动 */
+#taskTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #f1f5f9;
 }
 
 #taskTable thead {
@@ -285,6 +293,7 @@ button:disabled {
     position: fixed;
     inset: 0;
     background: rgba(15, 23, 42, 0.5);
+    -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
@@ -298,6 +307,7 @@ button:disabled {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -306,7 +316,7 @@ button:disabled {
 .modal-content {
     background: var(--surface);
     border-radius: var(--radius);
-    padding: 32px;
+    padding: 20px;
     width: min(720px, 100%);
     max-height: 90vh;
     overflow-y: auto;
@@ -319,6 +329,7 @@ button:disabled {
         transform: translateY(20px);
         opacity: 0;
     }
+
     to {
         transform: translateY(0);
         opacity: 1;
@@ -354,21 +365,21 @@ button:disabled {
 /* 表单网格 */
 .form-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    margin-bottom: 24px;
-	gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    margin-bottom: 0;
+    gap: 8px;
 }
 
 /* 表单元素 */
 label {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     font-size: 14px;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
-label > span {
+label>span {
     font-weight: 600;
     color: var(--text);
     font-size: 13px;
@@ -377,7 +388,7 @@ label > span {
     gap: 4px;
 }
 
-label > span:after {
+label>span:after {
     content: attr(data-required);
     color: var(--danger);
     font-size: 12px;
@@ -391,12 +402,44 @@ textarea {
     width: 100%;
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 10px 12px;
-    font-size: 14px;
+    padding: 8px 10px;
+    font-size: 13px;
     font-family: inherit;
     background: var(--surface);
     color: var(--text);
     transition: all 0.2s;
+}
+
+/* 统一表单控件高度，保证同一行内的输入/选择/按钮垂直对齐 */
+input[type="text"],
+input[type="number"],
+select {
+    height: 36px;
+    line-height: 1.2;
+}
+
+.account-wrapper {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    /* 保持居中对齐 */
+}
+
+.account-wrapper button {
+    /* 小号按钮与输入一致高度 */
+    height: 36px;
+    padding: 6px 10px;
+}
+
+/* 使所有 small 按钮在表单行中与输入框同高（包括 Cron 生成器与全取消） */
+button.small,
+.cron-input-wrapper button,
+.pretask-wrapper button {
+    height: 36px;
+    padding: 6px 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 input[type="text"]:focus,
@@ -410,10 +453,10 @@ textarea:focus {
 
 textarea {
     resize: vertical;
-    min-height: 120px;
+    min-height: 90px;
     font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.5;
 }
 
 small {
@@ -456,32 +499,33 @@ small {
     background: white;
     border-radius: 50%;
     transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.switch input:checked + .slider {
+.switch input:checked+.slider {
     background: var(--primary);
 }
 
-.switch input:checked + .slider::before {
+.switch input:checked+.slider::before {
     transform: translateX(24px);
 }
 
 /* 表单部分 */
 .form-section {
-    background: #f8fafc;
-    border-radius: var(--radius);
-    padding: 20px;
-    margin: 16px 0;
-    border: 1px solid var(--border);
+    /* 移除所有额外间距与边框，内容相邻紧凑显示 */
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
 }
 
 .modal-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 12px;
-    margin-top: 32px;
-    padding-top: 20px;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 12px;
     border-top: 1px solid var(--border);
 }
 
@@ -494,9 +538,18 @@ small {
     align-items: center;
 }
 
+/* 账号选择框宽度自动填充 */
 .account-wrapper select,
 .pretask-wrapper select {
     flex: 1;
+}
+
+/* 增大前置任务多选框 */
+.pretask-wrapper select {
+    min-height: 120px;
+    /* 也可改为 160px，根据需要调整 */
+    height: auto;
+    /* 避免被统一 height 覆盖 */
 }
 
 .cron-input-wrapper input {
@@ -506,36 +559,37 @@ small {
 /* Cron生成器样式 */
 .cron-field-list {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-    margin: 20px 0;
+    /* 在宽视口一行显示 5 个字段，等分列；窄屏由 media query 回退为单列 */
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    margin: 12px 0;
 }
 
 .cron-field {
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 16px;
+    padding: 8px;
     background: #f8fafc;
 }
 
-.cron-field label > span {
-    font-size: 12px;
+.cron-field label>span {
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
     color: var(--muted);
 }
 
 .cron-custom-input {
-    margin-top: 12px;
+    margin-top: 8px;
 }
 
 .cron-preview {
     background: #f1f5f9;
     border-radius: var(--radius);
-    padding: 16px;
-    margin: 20px 0;
+    padding: 10px;
+    margin: 12px 0;
     font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .cron-preview code {
@@ -546,6 +600,14 @@ small {
     padding: 4px 8px;
     border-radius: 4px;
     margin-left: 8px;
+}
+
+/* 更小的控件用于 Cron 生成器，使行高更紧凑 */
+.cron-field select,
+.cron-field input.cron-custom-input,
+.cron-field .cron-custom-input {
+    padding: 6px 8px;
+    font-size: 12px;
 }
 
 /* 结果列表 */
@@ -616,6 +678,7 @@ small {
         transform: translateX(100%);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
@@ -641,6 +704,7 @@ small {
         transform: translateX(0);
         opacity: 1;
     }
+
     to {
         transform: translateX(100%);
         opacity: 0;
@@ -650,12 +714,12 @@ small {
 /* 模板选择样式 */
 #templateSelect {
     width: 100%;
-    padding: 10px 12px;
+    padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--surface);
     color: var(--text);
-    font-size: 14px;
+    font-size: 13px;
     transition: all 0.2s;
 }
 
@@ -675,54 +739,54 @@ small {
     main {
         padding: 0 16px 32px;
     }
-    
+
     .app-header {
         padding: 16px;
         flex-direction: column;
         gap: 16px;
         align-items: flex-start;
     }
-    
-    .app-header > div:last-child {
+
+    .app-header>div:last-child {
         width: 100%;
         justify-content: space-between;
     }
-    
+
     .toolbar {
         margin: 0 -16px;
         padding: 16px;
         top: 145px;
         overflow-x: auto;
     }
-    
+
     .table-wrapper {
         border-radius: 0;
         border-left: none;
         border-right: none;
     }
-    
+
     .modal {
         padding: 16px;
     }
-    
+
     .modal-content {
-        padding: 24px;
+        padding: 16px;
     }
-    
+
     .form-grid {
         grid-template-columns: 1fr;
         gap: 16px;
     }
-    
+
     .cron-field-list {
         grid-template-columns: 1fr;
     }
-    
+
     .result-card header {
         flex-direction: column;
         align-items: flex-start;
     }
-    
+
     .toast {
         left: 16px;
         right: 16px;
@@ -735,12 +799,12 @@ small {
         padding: 8px 12px;
         font-size: 13px;
     }
-    
+
     #taskTable th,
     #taskTable td {
         padding: 12px;
     }
-    
+
     .modal-content {
         padding: 20px;
     }

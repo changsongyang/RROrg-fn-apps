@@ -72,31 +72,6 @@
                         <small id="accountStatus" class="muted account-status-text">Linux 环境仅可选择系统组的账号；Windows
                             环境默认使用当前登录账号</small>
                     </label>
-                    <!-- 模板选择 -->
-					<label>
-						<span>任务模板</span>
-						<select name="template" id="templateSelect">
-							<option value="">无模板（自定义）</option>
-							<option value="auto_shutdown">定时关机</option>
-							<option value="clean_recycle">定时清理回收站</option>
-						</select>
-						<small class="muted">选择模板会自动填充任务内容</small>
-					</label>
-					<label>
-						<span>触发方式</span>
-						<select name="trigger_type" id="triggerType">
-							<option value="schedule">定时</option>
-							<option value="event">事件</option>
-						</select>
-					</label>
-                    <label>
-                        <span id="isActiveLabel">立即启动</span>
-                        <label class="switch" for="isActiveCheckbox">
-                            <input type="checkbox" id="isActiveCheckbox" name="is_active" checked
-                                aria-labelledby="isActiveLabel" />
-                            <span class="slider"></span>
-                        </label>
-                    </label>
                     <label>
                         <span>触发方式</span>
                         <select name="trigger_type" id="triggerType">
@@ -104,6 +79,8 @@
                             <option value="event">事件</option>
                         </select>
                     </label>
+
+
                 </div>
 
                 <div class="form-section" data-section="schedule">
@@ -149,14 +126,37 @@
                     <small>仅当所选任务最近一次成功后才执行</small>
                 </label>
 
+                <!-- 模板选择 -->
+                <label>
+                    <span>任务模板</span>
+                    <select name="template" id="templateSelect">
+                        <option value="">无模板（自定义）</option>
+                        <option value="auto_shutdown">定时关机</option>
+                        <option value="clean_recycle">定时清理回收站</option>
+                    </select>
+                    <small class="muted">选择模板会自动填充任务内容</small>
+                </label>
+
                 <label>
                     <span>任务内容</span>
                     <textarea name="script_body" rows="6" placeholder="#!/bin/bash&#10;echo hello" required></textarea>
                 </label>
 
-                <div class="modal-actions">
-                    <button type="button" class="ghost" data-close>取消</button>
-                    <button type="submit" class="primary">保存</button>
+                <div class="modal-actions" style="display:flex;align-items:center;gap:0.75rem;">
+                    <div style="margin-right:auto;display:flex;align-items:center;gap:0.5rem;">
+                        <label style="display:flex;align-items:center;gap:0.5rem;">
+                            <span id="isActiveLabel">立即启动</span>
+                            <label class="switch" for="isActiveCheckbox">
+                                <input type="checkbox" id="isActiveCheckbox" name="is_active" checked
+                                    aria-labelledby="isActiveLabel" />
+                                <span class="slider"></span>
+                            </label>
+                        </label>
+                    </div>
+                    <div>
+                        <button type="button" class="ghost" data-close>取消</button>
+                        <button type="submit" class="primary">保存</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -251,7 +251,7 @@
                     </div>
                     <div class="cron-field">
                         <label>
-                            <span>星期（0=周一，6=周日）</span>
+                            <span>星期（0=周一）</span>
                             <select data-cron-field="weekday">
                                 <option value="*">每周 *</option>
                                 <option value="0-4">工作日 0-4</option>
@@ -272,8 +272,9 @@
                             <span>当前表达式：</span>
                             <code id="cronPreview">* * * * *</code>
                         </div>
+                        <div id="cronNextTimes" class="muted" style="font-size:0.95em;text-align:right;min-width:220px">
+                        </div>
                     </div>
-                    <div id="cronNextTimes" class="muted" style="margin-left:auto;font-size:0.95em;"></div>
                 </div>
                 <small class="muted">顺序：分钟 小时 日 月 周；自定义字段可使用数字、*、/、,、-，为空时默认 *</small>
                 <div class="modal-actions">
