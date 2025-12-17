@@ -1,24 +1,18 @@
 {
-    "docker-project":
-    {
-        "projects":
-        [
+    "docker-project": {
+        "projects": [
             {
                 "name": "fn-msedge",
                 "path": "docker"
             }
         ]
     },
-    "data-share":
-    {
-        "shares":
-        [
+    "data-share": {
+        "shares": [
             {
                 "name": "msedge",
-                "permission":
-                {
-                    "rw":
-                    [
+                "permission": {
+                    "rw": [
                         "docker-fn-msedge"
                     ]
                 }
