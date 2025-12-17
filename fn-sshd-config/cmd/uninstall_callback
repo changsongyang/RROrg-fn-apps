@@ -2,7 +2,9 @@
 
 ### This script is called after the user uninstalls the application.
 
-SSH_CONFIG_FILE="/etc/ssh/sshd_config"
-cp -f "${SSH_CONFIG_FILE}.bak" "${SSH_CONFIG_FILE}"
+[ "${wizard_data_action:-}" == "delete" ] && {
+  SSH_CONFIG_FILE="/etc/ssh/sshd_config"
+  cp -f "${SSH_CONFIG_FILE}.bak" "${SSH_CONFIG_FILE}"
+}
 
 exit 0
