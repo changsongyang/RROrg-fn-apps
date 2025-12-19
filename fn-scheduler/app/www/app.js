@@ -43,18 +43,35 @@ const elements = {
   currentTime: document.getElementById("currentTime"),
 };
 
-// 模板将通过异步加载（templates.json）注入到此变量
 let taskTemplates = {};
 
 async function loadTemplates() {
   try {
-    const resp = await fetch(new URL('./templates.json', window.location.href));
+    // 从后端获取数据库中的模板
+    const resp = await fetch('/api/templates');
     if (!resp.ok) throw new Error(`加载模板失败: ${resp.status}`);
-    taskTemplates = await resp.json();
+    const payload = await resp.json();
+    // payload.data 为数组形式
+    taskTemplates = {};
+    if (payload && Array.isArray(payload.data)) {
+      payload.data.forEach((t) => {
+        if (t && t.key) {
+          taskTemplates[t.key] = t;
+        }
+      });
+    } else if (payload && typeof payload === 'object') {
+      // 兼容 /api/templates/export 或直接返回 mapping
+      if (!Array.isArray(payload)) {
+        Object.keys(payload).forEach((k) => {
+          const v = payload[k];
+          taskTemplates[k] = { key: k, name: v.name, script_body: v.script_body };
+        });
+      }
+    }
     renderTemplateOptions();
     console.info('任务模板已加载', Object.keys(taskTemplates));
   } catch (err) {
-    console.warn('无法加载 templates.json，使用内联或空模板', err);
+    console.warn('无法通过 API 加载模板', err);
     taskTemplates = {};
   }
 }
@@ -78,6 +95,206 @@ function renderTemplateOptions() {
   });
   // 尝试恢复之前选择
   if (current) select.value = current;
+}
+
+// Template management UI state & helpers
+const templatesState = {
+  templates: [],
+  selectedId: null,
+  editingId: null,
+};
+
+async function refreshTemplatesList() {
+  try {
+    const resp = await api.listTemplates();
+    if (resp && Array.isArray(resp.data)) {
+      templatesState.templates = resp.data;
+    } else {
+      templatesState.templates = [];
+    }
+    renderTemplatesTable();
+  } catch (err) {
+    showToast(`加载模板列表失败：${err.message}`, true);
+  }
+}
+
+function renderTemplatesTable() {
+  const tbody = document.querySelector('#templatesTable tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  templatesState.templates.forEach((t) => {
+    const tr = document.createElement('tr');
+    tr.dataset.id = t.id;
+    tr.dataset.key = t.key || '';
+    tr.innerHTML = `<td>${escapeHtml(t.key || '')}</td><td>${escapeHtml(t.name || '')}</td><td>${escapeHtml((t.script_body || '').split('\n')[0] || '')}</td>`;
+    tr.tabIndex = 0;
+    if (String(templatesState.selectedId) === String(t.id)) {
+      tr.classList.add('selected');
+      tr.setAttribute('aria-selected', 'true');
+    } else {
+      tr.setAttribute('aria-selected', 'false');
+    }
+    tbody.appendChild(tr);
+  });
+  // click selection
+  const tbodyEl = document.querySelector('#templatesTable tbody');
+  if (tbodyEl) {
+    tbodyEl.onclick = (ev) => {
+      const row = ev.target.closest('tr');
+      if (!row) return;
+      const id = Number(row.dataset.id);
+      if (templatesState.selectedId === id) {
+        templatesState.selectedId = null;
+      } else {
+        templatesState.selectedId = id;
+      }
+      renderTemplatesTable();
+    };
+    tbodyEl.ondblclick = (ev) => {
+      const row = ev.target.closest('tr');
+      if (!row) return;
+      const id = Number(row.dataset.id);
+      const tpl = templatesState.templates.find(t => Number(t.id) === Number(id));
+      if (tpl) openTemplateEditModal(tpl);
+    };
+    tbodyEl.onkeydown = (ev) => {
+      const row = ev.target.closest('tr');
+      if (!row) return;
+      const id = Number(row.dataset.id);
+      // 空格或回车切换选择，回车为编辑
+      if (ev.key === ' ' || ev.key === 'Spacebar') {
+        ev.preventDefault();
+        if (templatesState.selectedId === id) templatesState.selectedId = null;
+        else templatesState.selectedId = id;
+        renderTemplatesTable();
+        return;
+      }
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        const tpl = templatesState.templates.find(t => Number(t.id) === Number(id));
+        if (tpl) openTemplateEditModal(tpl);
+      }
+    };
+  }
+  // 尝试将焦点移到被选中的行以便用户看到高亮
+  if (templatesState.selectedId) {
+    const selRow = document.querySelector(`#templatesTable tbody tr[data-id="${templatesState.selectedId}"]`);
+    if (selRow) selRow.focus();
+  }
+}
+
+function openTemplatesModal() {
+  refreshTemplatesList();
+  const modal = document.getElementById('templatesModal');
+  if (modal) openModal(modal);
+}
+
+function openTemplateEditModal(editing = null) {
+  templatesState.editingId = editing ? editing.id : null;
+  const modal = document.getElementById('templateEditModal');
+  const form = document.getElementById('templateForm');
+  const title = document.getElementById('templateEditTitle');
+  if (!form || !modal) return;
+  form.reset();
+  if (editing) {
+    title.textContent = `编辑模板：${editing.name}`;
+    form.key.value = editing.key || '';
+    form.name.value = editing.name || '';
+    form.script_body.value = editing.script_body || '';
+  } else {
+    title.textContent = '新增模板';
+  }
+  openModal(modal);
+}
+
+function openTemplatePreview(tpl) {
+  const modal = document.getElementById('templatePreviewModal');
+  const subtitle = document.getElementById('templatePreviewSubtitle');
+  const content = document.getElementById('templatePreviewContent');
+  if (!modal || !content) return;
+  subtitle.textContent = tpl ? `${tpl.key || ''} · ${tpl.name || ''}` : '';
+  content.textContent = tpl ? (tpl.script_body || '') : '';
+  openModal(modal);
+}
+
+async function saveTemplateFromForm(ev) {
+  ev.preventDefault();
+  const form = document.getElementById('templateForm');
+  if (!form) return;
+  const data = {
+    key: form.key.value.trim(),
+    name: form.name.value.trim(),
+    script_body: form.script_body.value.trim(),
+  };
+  try {
+    if (templatesState.editingId) {
+      await api.updateTemplate(templatesState.editingId, data);
+      showToast('模板已更新');
+    } else {
+      await api.createTemplate(data);
+      showToast('模板已创建');
+    }
+    closeModal(document.getElementById('templateEditModal'));
+    refreshTemplatesList();
+    await loadTemplates();
+  } catch (err) {
+    showToast(`保存模板失败：${err.message}`, true);
+  }
+}
+
+async function deleteSelectedTemplate() {
+  const id = templatesState.selectedId;
+  if (!id) { showToast('请先选择模板'); return; }
+  if (!window.confirm('确认删除所选模板？')) { return; }
+  try {
+    await api.deleteTemplate(id);
+    templatesState.selectedId = null;
+    refreshTemplatesList();
+    await loadTemplates();
+    showToast('模板已删除');
+  } catch (err) {
+    showToast(`删除失败：${err.message}`, true);
+  }
+}
+
+async function exportTemplatesToFile() {
+  try {
+    const mapping = await api.exportTemplates();
+    const content = JSON.stringify(mapping, null, 2);
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'templates-export.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    showToast(`导出失败：${err.message}`, true);
+  }
+}
+
+function bindTemplateImportFile() {
+  const fileInput = document.getElementById('templateImportFile');
+  if (!fileInput) return;
+  fileInput.onchange = async () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    try {
+      const text = await f.text();
+      const obj = JSON.parse(text);
+      if (typeof obj !== 'object') throw new Error('文件格式不正确');
+      const resp = await api.importTemplates(obj);
+      showToast(`导入完成：新增 ${resp.imported.inserted}，更新 ${resp.imported.updated}`);
+      refreshTemplatesList();
+      await loadTemplates();
+    } catch (err) {
+      showToast(`导入失败：${err.message}`, true);
+    } finally {
+      fileInput.value = '';
+    }
+  };
 }
 
 // 显示当前时间
@@ -194,6 +411,24 @@ const api = {
       method: "POST",
       body: JSON.stringify(data),
     });
+  },
+  listTemplates() {
+    return this.request('/api/templates');
+  },
+  createTemplate(data) {
+    return this.request('/api/templates', { method: 'POST', body: JSON.stringify(data) });
+  },
+  updateTemplate(id, data) {
+    return this.request(`/api/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  },
+  deleteTemplate(id) {
+    return this.request(`/api/templates/${id}`, { method: 'DELETE' });
+  },
+  importTemplates(mapping) {
+    return this.request('/api/templates/import', { method: 'POST', body: JSON.stringify(mapping) });
+  },
+  exportTemplates() {
+    return fetch('/api/templates/export').then((r) => r.json());
   },
   updateTask(id, data) {
     return this.request(`/api/tasks/${id}`, {
@@ -421,31 +656,31 @@ function renderAccountOptions(selectedAccount = "") {
   });
 
 
-// 更新事件类型下拉选项的显示文本（响应式）
-function updateEventOptionLabels() {
-  const el = elements.eventTypeSelect;
-  if (!el) return;
-  const useShort = isNarrow();
-  // 保留选项顺序及 value，仅调整显示文本
-  for (const opt of el.options) {
-    const v = opt.value;
-    if (v === 'script' || v === 'system_boot' || v === 'system_shutdown') {
-      opt.textContent = useShort ? (eventTypeShortMap[v] || eventTypeMap[v]) : (eventTypeMap[v] || eventTypeShortMap[v]);
+  // 更新事件类型下拉选项的显示文本（响应式）
+  function updateEventOptionLabels() {
+    const el = elements.eventTypeSelect;
+    if (!el) return;
+    const useShort = isNarrow();
+    // 保留选项顺序及 value，仅调整显示文本
+    for (const opt of el.options) {
+      const v = opt.value;
+      if (v === 'script' || v === 'system_boot' || v === 'system_shutdown') {
+        opt.textContent = useShort ? (eventTypeShortMap[v] || eventTypeMap[v]) : (eventTypeMap[v] || eventTypeShortMap[v]);
+      }
     }
   }
-}
 
-// 在窗口尺寸变化时更新 event 下拉与任务列表显示
-window.addEventListener('resize', () => {
-  updateEventOptionLabels();
-  // 重新渲染任务以更新在表格中显示的事件简称/全称
-  renderTasks();
-});
+  // 在窗口尺寸变化时更新 event 下拉与任务列表显示
+  window.addEventListener('resize', () => {
+    updateEventOptionLabels();
+    // 重新渲染任务以更新在表格中显示的事件简称/全称
+    renderTasks();
+  });
 
-// 初始化时也更新一下
-document.addEventListener('DOMContentLoaded', () => {
-  updateEventOptionLabels();
-});
+  // 初始化时也更新一下
+  document.addEventListener('DOMContentLoaded', () => {
+    updateEventOptionLabels();
+  });
   if (!hasSelected && !legacyAccount && select.options.length) {
     select.options[0].selected = true;
   }
@@ -1177,6 +1412,49 @@ function attachEventListeners() {
     });
   }
 }
+// 模板管理按钮与操作
+const manageBtn = document.getElementById('btnManageTemplates');
+if (manageBtn) manageBtn.addEventListener('click', openTemplatesModal);
+const addTplBtn = document.getElementById('btnAddTemplate');
+if (addTplBtn) addTplBtn.addEventListener('click', () => openTemplateEditModal(null));
+const editTplBtn = document.getElementById('btnEditTemplate');
+if (editTplBtn) editTplBtn.addEventListener('click', () => {
+  const id = templatesState.selectedId;
+  if (!id) { showToast('请选择要编辑的模板'); return; }
+  const tpl = templatesState.templates.find(t => Number(t.id) === Number(id));
+  if (!tpl) { showToast('模板未找到'); return; }
+  openTemplateEditModal(tpl);
+});
+const delTplBtn = document.getElementById('btnDeleteTemplate');
+if (delTplBtn) delTplBtn.addEventListener('click', deleteSelectedTemplate);
+const expTplBtn = document.getElementById('btnExportTemplates');
+if (expTplBtn) expTplBtn.addEventListener('click', exportTemplatesToFile);
+const impTplBtn = document.getElementById('btnImportTemplates');
+if (impTplBtn) impTplBtn.addEventListener('click', () => {
+  const fi = document.getElementById('templateImportFile');
+  if (fi) fi.click();
+});
+const previewBtn = document.getElementById('btnPreviewTemplate');
+if (previewBtn) previewBtn.addEventListener('click', () => {
+  const id = templatesState.selectedId;
+  if (!id) { showToast('请选择一个模板以预览'); return; }
+  const tpl = templatesState.templates.find(t => Number(t.id) === Number(id));
+  if (!tpl) { showToast('模板未找到'); return; }
+  openTemplatePreview(tpl);
+});
+const tplForm = document.getElementById('templateForm');
+if (tplForm) tplForm.addEventListener('submit', saveTemplateFromForm);
+bindTemplateImportFile();
+// update buttons state periodically
+setInterval(() => {
+  const editBtn = document.getElementById('btnEditTemplate');
+  const delBtn = document.getElementById('btnDeleteTemplate');
+  const previewBtn2 = document.getElementById('btnPreviewTemplate');
+  const sel = templatesState.selectedId;
+  if (editBtn) editBtn.disabled = !sel;
+  if (delBtn) delBtn.disabled = !sel;
+  if (previewBtn2) previewBtn2.disabled = !sel;
+}, 300);
 
 (async function init() {
   await loadTemplates();

@@ -723,6 +723,83 @@ small {
     transition: all 0.2s;
 }
 
+/* Templates management styles */
+.simple-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.simple-table thead th {
+    text-align: left;
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+    background: #f8fafc;
+    font-weight: 600;
+}
+.simple-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    font-size: 13px;
+}
+.simple-table tbody tr { cursor: pointer; transition: background 0.12s; }
+.simple-table tbody tr:hover { background: #f1f5f9; }
+.simple-table tbody tr.selected { background: rgba(59,130,246,0.08); outline: 2px solid rgba(59,130,246,0.12); }
+
+/* 加强选中行的视觉对比并添加左侧强调线 */
+.simple-table tbody tr.selected {
+    background: rgba(59,130,246,0.12);
+    outline: none;
+    box-shadow: inset 0 0 0 1px rgba(59,130,246,0.06);
+    border-left: 4px solid var(--primary);
+}
+
+/* 可聚焦行样式（键盘导航时可见） */
+.simple-table tbody tr:focus {
+    outline: 3px solid rgba(59,130,246,0.14);
+    background: rgba(59,130,246,0.06);
+}
+
+.templates-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:nowrap; overflow:auto; }
+
+/* 将导入/导出按钮视觉分组并略微收紧间距 */
+#btnImportTemplates, #btnExportTemplates {
+    margin-left: 4px;
+}
+
+/* 更紧凑的模态内容 for templates */
+#templatesModal .modal-content { width: min(920px, 100%); padding: 18px; }
+
+/* 模板表格可滚动容器，保证在模态内可独立滚动 */
+.templates-table-wrapper {
+    max-height: 46vh;
+    overflow: auto;
+    border-radius: 6px;
+}
+
+/* 模板编辑表单使脚本区域更大 */
+#templateEditModal textarea { min-height: 200px; font-family: JetBrains Mono, Consolas, monospace; font-size: 13px; }
+
+/* 预览区域统一样式（替换内联样式） */
+#templatePreviewContent {
+    white-space: pre-wrap;
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 16px;
+    border-radius: 8px;
+    max-height: 60vh;
+    overflow: auto;
+    font-family: JetBrains Mono, Consolas, monospace;
+    font-size: 13px;
+}
+
+/* 略微加深模态遮罩以提升可读性 */
+.modal {
+    background: rgba(15, 23, 42, 0.6);
+}
+
+/* 让表头在模态内滚动时保持可见 */
+.simple-table thead th { position: sticky; top: 0; z-index: 12; }
+
 #templateSelect:focus {
     outline: none;
     border-color: var(--primary);

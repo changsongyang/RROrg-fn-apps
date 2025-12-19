@@ -401,6 +401,30 @@ class Database:
                 cur.execute(f"PRAGMA user_version={DB_LATEST_VERSION};")
             self._conn.commit()
 
+        try:
+            with self._lock:
+                cur = self._conn.execute("SELECT COUNT(1) FROM sqlite_master WHERE type='table' AND name='templates'")
+                row = cur.fetchone()
+                count = int(row[0]) if row else 0
+                if count == 0:
+                    # 兼容 ≤ v1.0.7 升级场景；如果 templates 表不存在，创建之（与 _create_schema 中定义一致）
+                    cur.executescript(
+                        """
+                        CREATE TABLE IF NOT EXISTS templates (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            key TEXT NOT NULL UNIQUE,
+                            name TEXT NOT NULL,
+                            script_body TEXT NOT NULL,
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL
+                        );
+                        """
+                    )
+                    self._conn.commit()
+        except Exception:
+            logger.exception("Failed to create templates tables")
+            pass
+
     def _create_schema(self, cur: sqlite3.Cursor) -> None:
         cur.executescript(
             """
@@ -434,6 +458,15 @@ class Database:
             );
 
             CREATE INDEX IF NOT EXISTS idx_task_results_task ON task_results(task_id, started_at DESC);
+            
+            CREATE TABLE IF NOT EXISTS templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                script_body TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
             """
         )
 
@@ -449,6 +482,113 @@ class Database:
         data["pre_task_ids"] = json.loads(data.get("pre_task_ids") or "[]")
         data["event_type"] = data.get("event_type") or EVENT_TYPE_SCRIPT
         return data
+
+    # Templates management ----------------------------------------------
+    def list_templates(self) -> List[Dict[str, Any]]:
+        with self._lock:
+            cur = self._conn.execute("SELECT * FROM templates ORDER BY id ASC")
+            rows = [dict(row) for row in cur.fetchall()]
+        return rows
+
+    def get_template(self, template_id: int) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            cur = self._conn.execute("SELECT * FROM templates WHERE id=?", (template_id,))
+            row = cur.fetchone()
+        return dict(row) if row else None
+
+    def create_template(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        now = isoformat(time_now())
+        key = (payload.get("key") or "").strip()
+        name = (payload.get("name") or "").strip()
+        script_body = (payload.get("script_body") or "").strip()
+        if not name:
+            raise ValueError("模板名称必填")
+        if not script_body:
+            raise ValueError("模板内容不能为空")
+        if not key:
+            # 自动生成 key（基于 name）
+            base = name.lower().replace(" ", "_")
+            key = base
+            idx = 1
+            while True:
+                cur = self._conn.execute("SELECT COUNT(1) FROM templates WHERE key=?", (key,))
+                (count,) = cur.fetchone()
+                if count == 0:
+                    break
+                idx += 1
+                key = f"{base}_{idx}"
+        now_iso = now
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO templates (key, name, script_body, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (key, name, script_body, now_iso, now_iso),
+            )
+            self._conn.commit()
+            tid = cur.lastrowid
+        return self.get_template(tid)  # type: ignore
+
+    def update_template(self, template_id: int, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        existing = self.get_template(template_id)
+        if not existing:
+            return None
+        name = payload.get("name", existing.get("name", "")).strip()
+        script_body = payload.get("script_body", existing.get("script_body", "")).strip()
+        key = payload.get("key", existing.get("key", "")).strip()
+        if not name:
+            raise ValueError("模板名称必填")
+        if not script_body:
+            raise ValueError("模板内容不能为空")
+        updated_at = isoformat(time_now())
+        with self._lock:
+            self._conn.execute(
+                "UPDATE templates SET key=?, name=?, script_body=?, updated_at=? WHERE id=?",
+                (key, name, script_body, updated_at, template_id),
+            )
+            self._conn.commit()
+        return self.get_template(template_id)
+
+    def delete_template(self, template_id: int) -> bool:
+        with self._lock:
+            cur = self._conn.execute("DELETE FROM templates WHERE id=?", (template_id,))
+            self._conn.commit()
+            return cur.rowcount > 0
+
+    def import_templates(self, mapping: Dict[str, Dict[str, str]]) -> Dict[str, int]:
+        """Import templates from a mapping like templates.json (key -> {name, script_body}).
+        Returns summary counts: inserted, updated"""
+        inserted = 0
+        updated = 0
+        now = isoformat(time_now())
+        with self._lock:
+            for key, meta in (mapping or {}).items():
+                name = (meta.get("name") or key).strip()
+                script_body = (meta.get("script_body") or "").strip()
+                if not script_body:
+                    continue
+                cur = self._conn.execute("SELECT id FROM templates WHERE key=?", (key,))
+                row = cur.fetchone()
+                if row:
+                    self._conn.execute(
+                        "UPDATE templates SET name=?, script_body=?, updated_at=? WHERE key=?",
+                        (name, script_body, now, key),
+                    )
+                    updated += 1
+                else:
+                    self._conn.execute(
+                        "INSERT INTO templates (key, name, script_body, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                        (key, name, script_body, now, now),
+                    )
+                    inserted += 1
+            self._conn.commit()
+        return {"inserted": inserted, "updated": updated}
+
+    def export_templates(self) -> Dict[str, Dict[str, str]]:
+        out: Dict[str, Dict[str, str]] = {}
+        with self._lock:
+            cur = self._conn.execute("SELECT key, name, script_body FROM templates ORDER BY id ASC")
+            for row in cur.fetchall():
+                out[row[0]] = {"name": row[1], "script_body": row[2]}
+        return out
 
     def list_tasks(self) -> List[Dict[str, Any]]:
         with self._lock:
@@ -1092,6 +1232,9 @@ class SchedulerRequestHandler(SimpleHTTPRequestHandler):
             if resource == "accounts" and method == "GET":
                 self._list_accounts()
                 return
+            if resource == "templates":
+                self._handle_templates(method, segments[1:])
+                return
             if resource == "tasks":
                 self._handle_tasks(method, segments[1:])
                 return
@@ -1189,6 +1332,73 @@ class SchedulerRequestHandler(SimpleHTTPRequestHandler):
                     deleted = ctx.db.delete_results(task_id, result_id)
                     self._json_response({"deleted": deleted})
                     return
+        self.send_error(HTTPStatus.NOT_FOUND)
+
+    def _handle_templates(self, method: str, remainder: List[str]) -> None:
+        ctx: SchedulerContext = self.server.app_context  # type: ignore[attr-defined]
+        # 支持：GET /api/templates (list), GET /api/templates/export (export as mapping),
+        # POST /api/templates/import (import mapping), POST /api/templates (create),
+        # GET/PUT/DELETE /api/templates/{id}
+        if method == "GET" and not remainder:
+            templates = ctx.db.list_templates()
+            self._json_response({"data": templates})
+            return
+        if remainder and remainder[0] == "export" and method == "GET":
+            mapping = ctx.db.export_templates()
+            # 返回为原生对象，保持与 templates.json 兼容
+            self._json_response(mapping)
+            return
+        if remainder and remainder[0] == "import" and method == "POST":
+            payload = self._read_json()
+            if payload is None:
+                return
+            # 支持直接上传 mapping 对象
+            if not isinstance(payload, dict):
+                raise ValueError("导入数据应为对象 mapping")
+            summary = ctx.db.import_templates(payload)
+            self._json_response({"imported": summary})
+            return
+        if not remainder:
+            if method == "POST":
+                payload = self._read_json()
+                if payload is None:
+                    return
+                tpl = ctx.db.create_template(payload)
+                self._json_response(tpl, status=HTTPStatus.CREATED)
+                return
+            self.send_error(HTTPStatus.METHOD_NOT_ALLOWED)
+            return
+        # 处理 /api/templates/{id}
+        try:
+            tpl_id = int(remainder[0])
+        except Exception:
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        if len(remainder) == 1:
+            if method == "GET":
+                tpl = ctx.db.get_template(tpl_id)
+                if not tpl:
+                    self.send_error(HTTPStatus.NOT_FOUND, "Template not found")
+                    return
+                self._json_response(tpl)
+                return
+            if method == "PUT":
+                payload = self._read_json()
+                if payload is None:
+                    return
+                tpl = ctx.db.update_template(tpl_id, payload)
+                if not tpl:
+                    self.send_error(HTTPStatus.NOT_FOUND)
+                    return
+                self._json_response(tpl)
+                return
+            if method == "DELETE":
+                deleted = ctx.db.delete_template(tpl_id)
+                if not deleted:
+                    self.send_error(HTTPStatus.NOT_FOUND)
+                    return
+                self._json_response({"deleted": True})
+                return
         self.send_error(HTTPStatus.NOT_FOUND)
 
     def _batch_tasks(self, payload: Dict[str, Any]) -> None:
