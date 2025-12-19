@@ -10,7 +10,7 @@
 | fn-open-vm-tools | v1.0.3 | Open-VM-Tools 是 VMware Tools 的开源替代品，旨在为运行在 VMware 环境中的虚拟机提供更好的性能和用户体验。 |
 | fn-qemu-ga | v1.0.3 | QEMU Guest Agent 是一个运行在虚拟机内部的守护进程，旨在通过与虚拟化主机的交互，执行一系列操作以增强虚拟机的管理能力。 |
 | fn-scheduler | v1.0.7 | 轻量级的任务计划应用，支持定时和条件触发任务执行。 |
-| fn-sshd-config | v1.0.0 | 设置 root 用户密码，修改 SSHD 配置，卸载时还原配置. |
+| fn-sshd-config | v1.0.0 | 设置 root 用户密码，修改 SSHD 配置. |
 | fn-terminal | v1.0.3 | terminal (ttyd + tmux) |
 
 ## 社区支持
