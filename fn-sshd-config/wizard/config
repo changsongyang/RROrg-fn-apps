@@ -4,13 +4,23 @@
         "items": [
             {
                 "type": "tips",
-                "helpText": "修改 SSHD 配置。"
-            }
-        ]
-    },
-    {
-        "stepTitle": "用户配置",
-        "items": [
+                "helpText": "设置 root 用户密码，修改 SSHD 配置。"
+            },
+            {
+                "type": "text",
+                "field": "wizard_password",
+                "label": "设置 root 用户密码",
+                "rules": [
+                    {
+                        "required": false,
+                        "message": "留空则不修改密码"
+                    },
+                    {
+                        "min": 2,
+                        "message": "密码长度不能少于2位"
+                    }
+                ]
+            },
             {
                 "type": "radio",
                 "field": "wizard_PermitRootLogin",

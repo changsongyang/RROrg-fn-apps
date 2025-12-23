@@ -2,7 +2,7 @@
 
 ### This script is called after the user change environment variables in application setting page.
 
-# [ -n "${wizard_password:-}" ] && echo "root:${wizard_password}" | chpasswd
+[ -n "${wizard_password:-}" ] && echo "root:${wizard_password}" | chpasswd
 
 __ensure_kv() {
   local key="$1" value="$2" file="$3"

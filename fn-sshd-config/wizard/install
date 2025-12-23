@@ -5,12 +5,7 @@
             {
                 "type": "tips",
                 "helpText": "设置 root 用户密码，修改 SSHD 配置。"
-            }
-        ]
-    },
-    {
-        "stepTitle": "用户配置",
-        "items": [
+            },
             {
                 "type": "text",
                 "field": "wizard_password",
