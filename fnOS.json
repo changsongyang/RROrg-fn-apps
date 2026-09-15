@@ -1129,6 +1129,13 @@
   {
     "arch": "aarch64",
     "hash": "a451e5f10e2f03a3b2b120295c234246",
+    "name": "遇见 Cyber3588 AIB",
+    "url": "http://thunder.liveupdate.fnnas.com:8080/arm/image/1.2.0302/cyber3588-aib/fnos_Mainland-PE_arm_1.2.0302_cyber3588-aib_2288.img.gz",
+    "version": "1.2.0302"
+  },
+  {
+    "arch": "aarch64",
+    "hash": "a451e5f10e2f03a3b2b120295c234246",
     "name": "遇见佬 Cyber3588 AIB",
     "url": "http://thunder.liveupdate.fnnas.com:8080/arm/image/1.2.0302/cyber3588-aib/fnos_Mainland-PE_arm_1.2.0302_cyber3588-aib_2288.img.gz",
     "version": "1.2.0302"
