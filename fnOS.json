@@ -78,6 +78,13 @@
   },
   {
     "arch": "aarch64",
+    "hash": "39eae5e402d2439d23a22f394d9a1a33",
+    "name": "UEFI ARM 安装镜像 ISO (支持 此芯 P1 / 苹果M系列（虚拟化) 飞腾3000系列 ）等",
+    "url": "http://thunder.liveupdate.fnnas.com:8080/arm/iso/armsr/fnos_Mainland-PE_arm_1.2.0701_armsr_2881.iso",
+    "version": "armsr"
+  },
+  {
+    "arch": "aarch64",
     "hash": "7babaa1bf2405a6880e802904b58a809",
     "name": "UEFI ARM 安装镜像 ISO (支持 此芯 P1 / 苹果M系列（虚拟化) ）等",
     "url": "http://thunder.liveupdate.fnnas.com:8080/arm/iso/armsr/fnos_Mainland-PE_arm_1.2.0302_armsr_2301.iso",
